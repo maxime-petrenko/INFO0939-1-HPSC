@@ -10,9 +10,10 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
-#define NX 5				/* X [pixels] 100*/
-#define NY 5				/*  Y [pixels] 100*/
+#define  NX 5				/* X [pixels] 100*/
+#define  NY 5				/*  Y [pixels] 100*/
 
 #define dx 0.01				/*  [m] */
 #define dt 20.0e-6			/*  [s] */
@@ -30,6 +31,31 @@ double Vx[NX+1][NY];		/* [m/s] */
 double Vy[NX][NY+1];		/*  [m/s] */
 double P[NX][NY];			/* [Pa] */
 
+bool file_exists(const char *filename)
+{
+    FILE *fp = fopen(filename, "r");
+    bool is_exist = false;
+    if (fp != NULL)
+    {
+        is_exist = true;
+        fclose(fp); // close the file
+    }
+    return is_exist;
+}
+
+FILE *fp;
+int write_out_p_int(int param){
+   fp = fopen( "out_p.dat" , "ab" );
+   fwrite(&param , 1 , sizeof(int) , fp );
+   fclose(fp);
+   return(0);
+}
+int write_out_p_double(double param){
+   fp = fopen( "out_p.dat" , "ab" );
+   fwrite(&param , 1 , sizeof(double) , fp );
+   fclose(fp);
+   return(0);
+}
 
 void UpdateV(){
 
@@ -107,8 +133,29 @@ int main(void){
 	double delta =strtod(delta_str, NULL),delta_t =  strtod(delta_t_str,NULL) ,max_t = strtod(max_t_str,NULL);
 	int sampling_rate = (int) sampling_rate_str;
 
+	/*writing in the out_p file*/
 
+	char *filename = "out_p.dat";
+    if (file_exists(filename)){
+    	remove("out_p.dat");
+	    printf("The file is deleted successfully.\n");
+    } else {
+        printf("The file is not deleted.\n");
+    }
+
+	write_out_p_int(NX);
+    write_out_p_int(NY);
+	int NZ=0;
+	write_out_p_int(NZ);
+	write_out_p_double(0);
+	write_out_p_double(NX);
+	write_out_p_double(0);
+	write_out_p_double(NY);
+	write_out_p_double(0);
+	write_out_p_double(0);
 	int i,j;
+
+
 	int n;
 	/* initialisation des différentes valeur de vélocité et pression pour les différents points à 0 */
 	for(i=0;i<NX+1;i++){
@@ -138,16 +185,12 @@ int main(void){
 			}
 			printf("\n");
 		}
-		printf("\n\n");
-		/* initialisation de la source
-		if( n < (1.0/freq)/dt ){
-			sig = (1.0-cos(2.0*M_PI*freq*n*dt))/2.0 * sin(2.0*M_PI*freq*n*dt);
+
+		for(int j = 0 ; j<NY ;j++){
+			for(int i=0 ; i<NX ;i++){
+				write_out_p_double(P[i][j]);
+			}
 		}
-		else{
-			sig = 0.0;
-		}
-		P[(int)(NX/2)][(int)(NY/2)] = sig;
-        */
 
 	}
 	return(0);
