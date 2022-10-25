@@ -8,6 +8,8 @@
  */
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define NX 5				/* X [pixels] 100*/
 #define NY 5				/*  Y [pixels] 100*/
@@ -17,9 +19,9 @@
 
 #define Nstep 10			/* Nstep*dt=durée de la simulation 0.01 s fait en 10000 pas*/
 
-#define freq 1.0e3			/*  [Hz] */
+#define freq 3.4e3			/*  [Hz] */
 
-#define rho 1.3				/* [kg/m^3] */
+#define rho 1.225 			/* [kg/m^3] */
 #define c 340 /*célerité en m *s**(-1)*/
 
 
@@ -32,26 +34,29 @@ double P[NX][NY];			/* [Pa] */
 void UpdateV(){
 
 	int i,j;
-	for(i=1;i<NX;i++){
+	/*we only change the valuex of vx from i=1,j=0 to i=Nx-1,j=Ny-1 so that the values of the velocity 
+	 in the boundaries dont get changed and stay equal to 0 same principle is used for Vy*/
+	for(i=1;i<NX+1;i++){
 		for(j=0;j<NY;j++){
 			Vx[i][j] += - dt / (rho * dx) * ( P[i][j] - P[i-1][j] );
 		}
 	}
 
 	for(i=0;i<NX;i++){
-		for(j=1;j<NY;j++){
+		for(j=1;j<NY+1;j++){
 			Vy[i][j] += - dt / (rho * dx) * ( P[i][j] - P[i][j-1] );
 		}
 	}
 }
 void UpdateP(){
 	int i,j;
-	for(i=1;i<NX;i++){
-		for(j=1;j<NY;j++){
+	for(i=0;i<NX;i++){
+		for(j=0;j<NY;j++){
 			P[i][j] += - ( rho* c * c * dt / dx )
 			            * ( ( Vx[i+1][j] - Vx[i][j] ) + ( Vy[i][j+1] - Vy[i][j] ) );
 		}
     }
+	/*
 	for(i=0;i<=NX;i++){
 		P[i][0] = P[i][1];
 		P[i][NY]	= P[i][NY-1];
@@ -60,9 +65,49 @@ void UpdateP(){
 		P[0][j] = P[1][j];
 		P[NX][j] = P[NX-1][j];	
 	}
+	*/
 }
 
 int main(void){
+	/*read the parameter ascii file  */
+
+	char line[1000] = "";  // assume each line has at most 999 chars (1 space for NUL character)
+	char *lines[1000] = { NULL }; // assume max number of lines is 1000
+	int idx = 0;
+	FILE *ifp;
+
+	ifp = fopen("param.txt", "r");
+	if (ifp == NULL)
+	{
+		printf("Error opening file!\n");
+		exit(1);
+	}
+
+	while(fgets(line, sizeof(line), ifp) != NULL)
+	{
+		lines[idx] = strdup(line);
+		/*printf("%s", lines[idx]);*/
+		idx++;
+	}
+
+
+	char delta_str[1000],delta_t_str[1000],max_t_str[1000],sampling_rate_str[1000],source_type[1000],input_speed_filename[1000], input_density_filename[1000], output_pressure_base_filename[1000],output_velocity_x_base_filename[1000],output_velocity_y_base_filename[1000], output_velocuty_z_base_filename[1000];
+	strcpy(delta_str,lines[0]);
+	strcpy(delta_t_str,lines[1]);
+	strcpy(max_t_str,lines[2]);
+	strcpy(sampling_rate_str,lines[3]);
+	strcpy(source_type,lines[4]);
+	strcpy(input_speed_filename,lines[5]);
+	strcpy(input_density_filename,lines[6]);
+	strcpy(output_pressure_base_filename,lines[7]);
+	strcpy(output_velocity_x_base_filename,lines[8]);
+	strcpy(output_velocity_y_base_filename,lines[9]);
+	strcpy(output_velocity_y_base_filename,lines[10]);
+
+	double delta =strtod(delta_str, NULL),delta_t =  strtod(delta_t_str,NULL) ,max_t = strtod(max_t_str,NULL);
+	int sampling_rate = (int) sampling_rate_str;
+
+
 	int i,j;
 	int n;
 	/* initialisation des différentes valeur de vélocité et pression pour les différents points à 0 */
@@ -87,9 +132,9 @@ int main(void){
 
         UpdateV();
 		UpdateP();
-	 	for(int j = 0;j <= NY; j++){
-			for(int i=0 ; i<=NX;i++){
-				printf("%lf",P[i][j]);
+	 	for(int j = NY-1 ;j >=0 ; j--){
+			for(int i=0 ; i<NX;i++){
+				printf("%lf  ,  ",P[i][j]);
 			}
 			printf("\n");
 		}
