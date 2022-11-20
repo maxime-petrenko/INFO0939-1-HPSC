@@ -4,7 +4,7 @@
  * @brief we re trying to solve the accoustic pde using FDTD method
  * @version 0.1
  * @date 2022-10-16
- * chaque 50 timestep il faut créer un fichier output (nombre de fichier output est 81)
+
  */
 #include <stdio.h>
 #include <math.h>
@@ -18,7 +18,7 @@
 #define dx 0.01				/*  [m] */
 #define dt 20.0e-6			/*  [s] */
 
-#define Nstep 20			/* Nstep*dt=durée de la simulation 0.01 s fait en 10000 pas*/
+#define Nstep 10			/* Nstep*dt=durée de la simulation 0.01 s fait en 10000 pas*/
 
 #define freq 3.4e3			/*  [Hz] */
 
@@ -31,9 +31,7 @@ double Vx[NX+1][NY];		/* [m/s] */
 double Vy[NX][NY+1];		/*  [m/s] */
 double P[NX][NY];			/* [Pa] */
 
-
-// file handling functions 
-bool file_exists(char *filename)
+bool file_exists(const char *filename)
 {
     FILE *fp = fopen(filename, "r");
     bool is_exist = false;
@@ -45,32 +43,20 @@ bool file_exists(char *filename)
     return is_exist;
 }
 
-int write_out_p_int(int param, char *filename){
-    FILE *fp = fopen( filename , "ab" );
-    fwrite(&param , 1 , sizeof(int) , fp );
-    fclose(fp);
-    return(0);
+FILE *fp;
+int write_out_p_int(int param){
+   fp = fopen( "out_p.dat" , "ab" );
+   fwrite(&param , 1 , sizeof(int) , fp );
+   fclose(fp);
+   return(0);
+}
+int write_out_p_double(double param){
+   fp = fopen( "out_p.dat" , "ab" );
+   fwrite(&param , 1 , sizeof(double) , fp );
+   fclose(fp);
+   return(0);
 }
 
-int write_out_p_double(double param, char *filename){
-    FILE *fp = fopen( filename , "ab" );
-    fwrite(&param , 1 , sizeof(double) , fp );
-    fclose(fp);
-    return(0);
-}
-
-int rem_if_exists(char *filename){
-    if (remove(filename) == 0){
-        return 0;
-	}
-    else{
-        return 1;
-	}
-}
-
-// end of file handling functions 
-
-// functions for calculations
 void UpdateV(){
 
 	int i,j;
@@ -96,9 +82,20 @@ void UpdateP(){
 			            * ( ( Vx[i+1][j] - Vx[i][j] ) + ( Vy[i][j+1] - Vy[i][j] ) );
 		}
     }
+	/*
+	for(i=0;i<=NX;i++){
+		P[i][0] = P[i][1];
+		P[i][NY]	= P[i][NY-1];
+	}
+	for(j=1;j<=NY;j++){
+		P[0][j] = P[1][j];
+		P[NX][j] = P[NX-1][j];	
+	}
+	*/
 }
-// end of functions for calculations
-// functions for the name of file 
+
+
+
 char* concat(const char *s1, const char *s2)
 {
     char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
@@ -108,22 +105,9 @@ char* concat(const char *s1, const char *s2)
     return result;
 }
 
-
-int count(int output_file_nb)
-{
-    int digits_count = 0;
-
-    do {
-        output_file_nb /= 10;
-        ++digits_count;
-        
-    } while (output_file_nb != 0);
-     return digits_count;
-}
-//
 int main(void){
-	
 	/*read the parameter ascii file  */
+
 	char line[1000] = "";  // assume each line has at most 999 chars (1 space for NUL character)
 	char *lines[1000] = { NULL }; // assume max number of lines is 1000
 	int idx = 0;
@@ -159,7 +143,30 @@ int main(void){
 
 	double delta =strtod(delta_str, NULL),delta_t =  strtod(delta_t_str,NULL) ,max_t = strtod(max_t_str,NULL);
 	int sampling_rate = (int) sampling_rate_str;
+
+	/*writing in the out_p file*/
+
+	char *filename = "out_p.dat";
+    if (file_exists(filename)){
+    	remove("out_p.dat");
+	    printf("The file is deleted successfully.\n");
+    } else {
+        printf("The file is not deleted.\n");
+    }
+
+	write_out_p_int(NX);
+    write_out_p_int(NY);
+	int NZ=0;
+	write_out_p_int(NZ);
+	write_out_p_double(0);
+	write_out_p_double(NX);
+	write_out_p_double(0);
+	write_out_p_double(NY);
+	write_out_p_double(0);
+	write_out_p_double(0);
 	int i,j;
+
+
 	int n;
 	/* initialisation des différentes valeur de vélocité et pression pour les différents points à 0 */
 	for(i=0;i<NX+1;i++){
@@ -178,50 +185,74 @@ int main(void){
 		}
 	}
 
-	int output_file_nb=0;
-
+	int output_file_nb = 0;
+	
 	for(n=0;n<=Nstep;n++){
+		//CI
+        P[(int)(NX/2)][(int)(NY/2)] = sin(2*M_PI*freq*n*dt);
 
-		P[(int)(NX/2)][(int)(NY/2)] = sin(2*M_PI*freq*n*dt);
         UpdateV();
 		UpdateP();
-	 	// for(int j = NY-1 ;j >=0 ; j--){
-		// 	for(int i=0 ; i<NX;i++){
-		// 		printf("%lf  ,  ",P[i][j]);
-		// 	}
-		// 	printf("\n");
-		// }
 
-        // to change 
-        if (n%2 == 0){
-            char* filename;
-            int digits_count = count(output_file_nb);
-            //printf("digits_count(%d) ", digits_count);
-            char str_output_file_nb[20];
-
-            sprintf(str_output_file_nb, "%06d", output_file_nb);
-            filename = concat("out_p_",str_output_file_nb);
-			filename = concat( filename,".dat");
-
-            //printf("%s \n",filename);
-			write_out_p_int(NX,filename);
-			write_out_p_int(NY,filename);
-			int NZ=0;
-			write_out_p_int(NZ,filename);
-			write_out_p_double(0,filename);
-			write_out_p_double(NX,filename);
-			write_out_p_double(0,filename);
-			write_out_p_double(NY,filename);
-			write_out_p_double(0,filename);
-			write_out_p_double(0,filename);
-            for(int j = 0 ; j<NY ;j++){
-				for(int i=0 ; i<NX ;i++){
-					write_out_p_double(P[i][j],filename);
+	 	for(int j = NY-1 ;j >=0 ; j--){
+			for(int i=0 ; i<NX;i++){
+				//printf("%lf  ,  ",P[i][j]);
 			}
+			//printf("\n");
+		}
+
+		for(int j = 0 ; j<NY ;j++){
+			for(int i=0 ; i<NX ;i++){
+				write_out_p_double(P[i][j]);
 			}
-            free(filename); // deallocate the string                       
-            output_file_nb = output_file_nb +1 ;
-        }
+		}
+
+
+
+		char* filename;
+		int digits_count = 0;
+
+
+		// to change 
+		if (n%2 == 0){
+		//if (n%50 == 0){
+
+			// iterate at least once, then until n becomes 0
+			// remove last digit from n in each iteration
+			// increase count by 1 in each iteration
+			do {
+				output_file_nb /= 10;
+				++digits_count;
+			} while (output_file_nb != 0);
+
+
+
+			char str_output_file_nb[20];
+			fprintf('%d',output_file_nb);
+
+			sprintf(str_output_file_nb, "%d", output_file_nb);
+			printf('%s',str_output_file_nb);
+
+			if (digits_count == 1){
+
+				filename = concat("outp-0",str_output_file_nb);
+				printf("%s",filename);
+				printf("\n");
+				free(filename); // deallocate the string
+
+			} else if (digits_count == 2)
+			{
+				filename = concat("outp-",str_output_file_nb);
+				// do things with filename
+				free(filename); // deallocate the string
+
+			}
+						
+			output_file_nb++ ;
+
+
+
+		}
 	}
 	return(0);
 }
