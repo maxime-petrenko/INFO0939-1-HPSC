@@ -18,7 +18,7 @@
 #define dx 0.01				/*  [m] */
 #define dt 20.0e-6			/*  [s] */
 
-#define Nstep 20			/* Nstep*dt=durée de la simulation 0.01 s fait en 10000 pas*/
+#define Nstep 5000			/* Nstep*dt=durée de la simulation 0.01 s fait en 10000 pas*/
 
 #define freq 3.4e3			/*  [Hz] */
 
@@ -121,15 +121,33 @@ int count(int output_file_nb)
      return digits_count;
 }
 //
-int main(void){
+int main(int argc, char *argv[]){
 	
 	/*read the parameter ascii file  */
 	char line[1000] = "";  // assume each line has at most 999 chars (1 space for NUL character)
 	char *lines[1000] = { NULL }; // assume max number of lines is 1000
 	int idx = 0;
 	FILE *ifp;
+	char *filename;
 
-	ifp = fopen("param.txt", "r");
+
+
+	// Check if a filename has been specified in the command
+	if (argc < 2)
+	{
+			printf("Missing Filename\n");
+			return(1);
+	}
+	else
+	{
+			filename = argv[1];
+			printf("Filename : %s\n", filename);
+	}
+
+	// Open file in read-only mode
+	ifp = fopen(filename,"r");
+	
+
 	if (ifp == NULL)
 	{
 		printf("Error opening file!\n");
@@ -141,7 +159,10 @@ int main(void){
 		lines[idx] = strdup(line);
 		/*printf("%s", lines[idx]);*/
 		idx++;
+
 	}
+
+	fclose(ifp);
 
 
 	char delta_str[1000],delta_t_str[1000],max_t_str[1000],sampling_rate_str[1000],source_type[1000],input_speed_filename[1000], input_density_filename[1000], output_pressure_base_filename[1000],output_velocity_x_base_filename[1000],output_velocity_y_base_filename[1000], output_velocuty_z_base_filename[1000];
@@ -192,17 +213,15 @@ int main(void){
 		// 	printf("\n");
 		// }
 
-        // to change 
-        if (n%2 == 0){
+        // to change : save a frame each 50n steps
+        if (n%50 == 0){
             char* filename;
             int digits_count = count(output_file_nb);
             //printf("digits_count(%d) ", digits_count);
             char str_output_file_nb[20];
 
             sprintf(str_output_file_nb, "%06d", output_file_nb);
-            filename = concat("out_p_",str_output_file_nb);
-			filename = concat( filename,".dat");
-
+            filename = concat("out_p.dat",str_output_file_nb);
             //printf("%s \n",filename);
 			write_out_p_int(NX,filename);
 			write_out_p_int(NY,filename);
