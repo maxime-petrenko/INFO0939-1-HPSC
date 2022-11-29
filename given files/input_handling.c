@@ -50,13 +50,13 @@ int main()
         printf("Memory not allocated");
         return 2;
     }else{    
-        for (int i = 0; i < nx_in_c; i++) {
+        for (int i = 0; i < nz_in_c; i++) {
             for (int j = 0; j < ny_in_c; j++){
-                for(int k = 0; k < nz_in_c; k++){
+                for(int k = 0; k < nx_in_c; k++){
                     char bytes[8];
                     fread(&bytes,sizeof(double),1,ptr_myfile) ;
-                    VALUES_IN_C(i,j,k) = *((double*)bytes);
-                    printf("VALUES_IN_C(%d,%d,%d) : %lf",i,j,k,VALUES_IN_C(i,j,k));
+                    VALUES_IN_C(k,j,i) = *((double*)bytes);
+                    printf("VALUES_IN_C(%d,%d,%d) : %lf",k,j,i,VALUES_IN_C(k,j,i));
                     printf("\n");
                 }
             }
@@ -87,13 +87,13 @@ int main()
         printf("Memory not allocated");
         return 2;
     }else{    
-        for (int i = 0; i < nx_in_rho; i++) {
+        for (int i = 0; i < nz_in_rho; i++) {
             for (int j = 0; j < ny_in_rho; j++){
-                for(int k = 0; k < nz_in_rho; k++){
+                for(int k = 0; k < nx_in_rho; k++){
                     char bytes[8];
                     fread(&bytes,sizeof(double),1,ptr_myfile2) ;
-                    VALUES_IN_RHO(i,j,k) = *((double*)bytes);
-                    printf("VALUES_IN_RHO(%d,%d,%d) : %lf",i,j,k,VALUES_IN_RHO(i,j,k));
+                    VALUES_IN_RHO(k,j,i) = *((double*)bytes);
+                    printf("VALUES_IN_RHO(%d,%d,%d) : %lf",k,j,i,VALUES_IN_RHO(k,j,i));
                     printf("\n");
                 }
             }
