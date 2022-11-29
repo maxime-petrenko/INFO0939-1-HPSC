@@ -13,24 +13,25 @@
 #include <stdbool.h>
  
 // we use the parmeters from the input files 
-// #define  NX 5				/* X [pixels] 100*/
-// #define  NY 5				/*  Y [pixels] 100*/
-
-// #define dx 0.01				/*  [m] */
-// #define dt 20.0e-6			/*  [s] */
-
-// #define Nstep 5000			/* Nstep*dt=durée de la simulation 0.01 s fait en 10000 pas*/
-
-// #define freq 3.4e3			/*  [Hz] */
-
-// #define rho 1.225 			/* [kg/m^3] */
-// #define c 340 /*célerité en m *s**(-1)*/
-
+//  #define  NX 5				/* X [pixels] 100*/
+//  #define  NY 5				/*  Y [pixels] 100*/
+//  #define dx 0.01				/*  [m] */
+//  #define dt 20.0e-6			/*  [s] */
+//  #define Nstep 5000			/* Nstep*dt=durée de la simulation 0.01 s fait en 10000 pas*/
+//  #define rho 1.225 			/* [kg/m^3] */
+//  #define c 340 /*célerité en m *s**(-1)*/
+// double Vx[NX+1][NY];		/* [m/s] */
+// double Vy[NX][NY+1];		/*  [m/s] */
+// double P[NX][NY];			/* [Pa] */
 //used to organize the values of the input 
 const int dim1, dim2, dim3;  /* Global variables, dimension*/
 
 #define VALUES_IN_C(i,j,k) (array_in_c[dim2*dim3*i + dim3*j + k])
 #define VALUES_IN_RHO(i,j,k) (array_in_rho[dim2*dim3*i + dim3*j + k])
+#define VALUES_OUT_P(i,j,k) (array_out_p[dim2*dim3*i + dim3*j + k])
+#define VALUES_OUT_Vx(i,j,k) (array_out_vx[dim2*dim3*i + dim3*j + k])
+#define VALUES_OUT_Vy(i,j,k) (array_out_vy[dim2*dim3*i + dim3*j + k])
+#define VALUES_OUT_Vz(i,j,k) (array_out_vz[dim2*dim3*i + dim3*j + k])
 
 /* Our structure for the first terms of the file */
 struct rec{
@@ -60,14 +61,14 @@ bool file_exists(char *filename)
     return is_exist;
 }
 
-int write_out_p_int(int param, char *filename){
+int write_int(int param, char *filename){
     FILE *fp = fopen( filename , "ab" );
     fwrite(&param , 1 , sizeof(int) , fp );
     fclose(fp);
     return(0);
 }
 
-int write_out_p_double(double param, char *filename){
+int write_double(double param, char *filename){
     FILE *fp = fopen( filename , "ab" );
     fwrite(&param , 1 , sizeof(double) , fp );
     fclose(fp);
@@ -82,50 +83,17 @@ int rem_if_exists(char *filename){
         return 1;
 	}
 }
-
 // end of file handling functions 
 
-// functions for calculations
-void UpdateV(){
-
-	int i,j;
-	/*we only change the valuex of vx from i=1,j=0 to i=Nx-1,j=Ny-1 so that the values of the velocity 
-	 in the boundaries dont get changed and stay equal to 0 same principle is used for Vy*/
-	for(i=1;i<NX+1;i++){
-		for(j=0;j<NY;j++){
-			Vx[i][j] += - dt / (rho * dx) * ( P[i][j] - P[i-1][j] );
-		}
-	}
-
-	for(i=0;i<NX;i++){
-		for(j=1;j<NY+1;j++){
-			Vy[i][j] += - dt / (rho * dx) * ( P[i][j] - P[i][j-1] );
-		}
-	}
-}
-void UpdateP(){
-	int i,j;
-	for(i=0;i<NX;i++){
-		for(j=0;j<NY;j++){
-			P[i][j] += - ( rho* c * c * dt / dx )
-			            * ( ( Vx[i+1][j] - Vx[i][j] ) + ( Vy[i][j+1] - Vy[i][j] ) );
-		}
-    }
-}
-// end of functions for calculations
 // functions for the name of file 
-char* concat(const char *s1, const char *s2)
-{
+char* concat(const char *s1, const char *s2){
     char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
     strcpy(result, s1);
     strcat(result, s2);
     return result;
 }
-
-
-int count(int output_file_nb)
-{
+int count(int output_file_nb){
     int digits_count = 0;
 
     do {
@@ -135,17 +103,45 @@ int count(int output_file_nb)
     } while (output_file_nb != 0);
      return digits_count;
 }
-double Vx[NX+1][NY];		/* [m/s] */
-double Vy[NX][NY+1];		/*  [m/s] */
-double P[NX][NY];			/* [Pa] */
+
 
 int main(int argc, char *argv[]){
 	/*get and affect the values of the input files */
-	    FILE *ptr_myfile;
+    /*getting the values of the param file  */
+    /*read the parameter ascii file  */
+	int idx = 0;
+	FILE *ifp;
+	char *filename;
+	// Check if a filename has been specified in the command
+	if (argc < 2){
+			printf("Missing Filename\n");
+			return(1);
+	}
+	else{
+			filename = argv[1];
+			printf("Filename : %s\n", filename);
+	}
+	ifp = fopen(filename,"r");
+	if (ifp == NULL){
+		printf("Error opening file line 128!\n");
+		exit(1);
+	}
+    double delta,delta_t,max_t;
+    int sampling_rate;
+    char source_type[50],input_speed_filename[50], input_density_filename[50], output_pressure_base_filename[50],output_velocity_x_base_filename[50],output_velocity_y_base_filename[50], output_velocity_z_base_filename[50];
+	fscanf(ifp,"%lf\n%lf\n%lf\n%d\n%s\n%s\n%s\n%s\n%s\n%s\n%s",&delta,&delta_t,&max_t,&sampling_rate,source_type,input_speed_filename,input_density_filename,output_pressure_base_filename,output_velocity_x_base_filename,output_velocity_y_base_filename,output_velocity_z_base_filename);
+	fclose(ifp);
+	
+
+   
+    printf("sampling rate :%d\n",sampling_rate);
+    /*get the parameters of the file in_c*/
+	FILE *ptr_myfile;
     struct rec my_record_in_c;
-    ptr_myfile=fopen("in_c.dat","rb");
+    printf("input density filename : %s\n ",input_density_filename);
+    ptr_myfile=fopen(input_speed_filename,"rb");
     if (!ptr_myfile){
-        printf("Unable to open file!");
+        printf("Unable to open file input speed filename!");
     }
     fread(&my_record_in_c,sizeof(struct rec),1,ptr_myfile);
 
@@ -158,8 +154,6 @@ int main(int argc, char *argv[]){
     double ymax_in_c = *((double*)my_record_in_c.ymax);
     double zmin_in_c = *((double*)my_record_in_c.zmin);
     double zmax_in_c = *((double*)my_record_in_c.zmax);
-
-   
     double * array_in_c = (double *)malloc(nx_in_c*ny_in_c*nz_in_c*sizeof(double)); 
     if(array_in_c == NULL){
         printf("Memory not allocated");
@@ -177,15 +171,14 @@ int main(int argc, char *argv[]){
         }
     }
     fclose(ptr_myfile);
-    
+    /*get the parameters of the file in_rho*/
     FILE *ptr_myfile2;
     struct rec my_record_in_rho;
-    ptr_myfile2=fopen("in_rho.dat","rb");
+    ptr_myfile2=fopen(input_density_filename,"rb");
     if (!ptr_myfile2){
-        printf("Unable to open file!");
+        printf("Unable to open file input density filename!");
     }
     fread(&my_record_in_rho,sizeof(struct rec),1,ptr_myfile2);
-
     int nx_in_rho = my_record_in_rho.nx;
     int ny_in_rho = my_record_in_rho.ny;
     int nz_in_rho = my_record_in_rho.nz;
@@ -213,122 +206,115 @@ int main(int argc, char *argv[]){
     }
     fclose(ptr_myfile2);
 
-	/*read the parameter ascii file  */
-	char line[1000] = "";  // assume each line has at most 999 chars (1 space for NUL character)
-	char *lines[1000] = { NULL }; // assume max number of lines is 1000
-	int idx = 0;
-	FILE *ifp;
-	char *filename;
-
-
-
-	// Check if a filename has been specified in the command
-	if (argc < 2)
-	{
-			printf("Missing Filename\n");
-			return(1);
-	}
-	else
-	{
-			filename = argv[1];
-			printf("Filename : %s\n", filename);
-	}
-
-	// Open file in read-only mode
-	ifp = fopen(filename,"r");
+    /* initialisation des différentes valeur de vélocité et pression pour les différents points à t0 */
+    double * array_out_p = (double *)malloc(nx_in_rho*ny_in_rho*nz_in_rho*sizeof(double));
+    double * array_out_vx = (double *)malloc(nx_in_rho*ny_in_rho*nz_in_rho*sizeof(double));
+    double * array_out_vy = (double *)malloc(nx_in_rho*ny_in_rho*nz_in_rho*sizeof(double));
+    double * array_out_vz = (double *)malloc(nx_in_rho*ny_in_rho*nz_in_rho*sizeof(double));
+    if(array_out_p == NULL ||array_out_vx == NULL ||array_out_vy == NULL ||array_out_vz == NULL ){
+        printf("Memory not allocated");
+    }else{    
+        for (int i = 0; i < nx_in_rho; i++) {
+            for (int j = 0; j < ny_in_rho; j++){
+                for(int k = 0; k < nz_in_rho; k++){
+                    VALUES_OUT_P(i,j,k)  = 0.0 ;
+                    VALUES_OUT_Vx(i,j,k) = 0.0 ;
+                    VALUES_OUT_Vy(i,j,k) = 0.0 ;
+                    VALUES_OUT_Vz(i,j,k) = 0.0 ;
+                   
+                }
+            }
+        }
+    }
 	
-
-	if (ifp == NULL)
-	{
-		printf("Error opening file!\n");
-		exit(1);
-	}
-
-	while(fgets(line, sizeof(line), ifp) != NULL)
-	{
-		lines[idx] = strdup(line);
-		/*printf("%s", lines[idx]);*/
-		idx++;
-
-	}
-
-	fclose(ifp);
-
-
-	char delta_str[1000],delta_t_str[1000],max_t_str[1000],sampling_rate_str[1000],source_type[1000],input_speed_filename[1000], input_density_filename[1000], output_pressure_base_filename[1000],output_velocity_x_base_filename[1000],output_velocity_y_base_filename[1000], output_velocuty_z_base_filename[1000];
-	strcpy(delta_str,lines[0]);
-	strcpy(delta_t_str,lines[1]);
-	strcpy(max_t_str,lines[2]);
-	strcpy(sampling_rate_str,lines[3]);
-	strcpy(source_type,lines[4]);
-	strcpy(input_speed_filename,lines[5]);
-	strcpy(input_density_filename,lines[6]);
-	strcpy(output_pressure_base_filename,lines[7]);
-	strcpy(output_velocity_x_base_filename,lines[8]);
-	strcpy(output_velocity_y_base_filename,lines[9]);
-	strcpy(output_velocity_y_base_filename,lines[10]);
-
-	double delta =strtod(delta_str, NULL),delta_t =  strtod(delta_t_str,NULL) ,max_t = strtod(max_t_str,NULL);
-	int sampling_rate = (int) sampling_rate_str;
-	int i,j;
+	
 	int n;
-	/* initialisation des différentes valeur de vélocité et pression pour les différents points à 0 */
-	for(i=0;i<NX+1;i++){
-		for(j=0;j<NY;j++){
-			Vx[i][j] = 0.0;
-		}
-	}
-	for(i=0;i<NX;i++){
-		for(j=0;j<NY+1;j++){
-			Vy[i][j] = 0.0;
-		}
-	}
-	for(i=0;i<NX;i++){
-		for(j=0;j<NY;j++){
-			P[i][j]  = 0.0;
-		}
-	}
-
 	int output_file_nb=0;
-
-	for(n=0;n<=Nstep;n++){
-
-		P[(int)(NX/2)][(int)(NY/2)] = sin(2*M_PI*freq*n*dt);
-        UpdateV();
-		UpdateP();
-	 	// for(int j = NY-1 ;j >=0 ; j--){
-		// 	for(int i=0 ; i<NX;i++){
-		// 		printf("%lf  ,  ",P[i][j]);
-		// 	}
-		// 	printf("\n");
-		// }
-
-        // to change : save a frame each 50n steps
-        if (n%50 == 0){
+	for(n=0;n<=max_t/delta_t;n++){
+        double freq;
+        if(strcmp(source_type,"point_source_middle_3400")==0){
+             freq = 3400;
+        } 
+        //UpdateV();
+        for (int i = 1; i < nx_in_rho; i++) {
+            for (int j = 1; j < ny_in_rho; j++){
+                for(int k = 1; k < nz_in_rho; k++){
+                    VALUES_OUT_P(i,j,k) +=  -( VALUES_IN_RHO(i,j,k) * pow(VALUES_IN_C(i,j,k),2) * delta_t / delta)
+                            * ( ( VALUES_OUT_Vx(i,j,k) - VALUES_OUT_Vx(i-1,j,k)  ) + ( VALUES_OUT_Vy(i,j,k) - VALUES_OUT_Vy(i,j-1,k) ) + (VALUES_OUT_Vz(i,j,k) - VALUES_OUT_Vz(i,j,k-1)));
+                }
+            }
+        }
+        VALUES_OUT_P(nx_in_rho/2,ny_in_rho/2,nz_in_rho/2)=sin(2*M_PI*n*delta*freq);
+		//UpdateP();
+        for (int i = 1; i < nx_in_rho; i++) {
+            for (int j = 1; j < ny_in_rho; j++){
+                for(int k = 1; k < nz_in_rho; k++){
+                    VALUES_OUT_Vx(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k) - VALUES_OUT_P(i-1,j,k) );
+                }
+            }
+	    }
+        for (int i = 1; i < nx_in_rho; i++) {
+            for (int j = 1; j < ny_in_rho; j++){
+                for(int k = 1; k < nz_in_rho; k++){
+                    VALUES_OUT_Vy(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k) - VALUES_OUT_P(i,j-1,k) );
+                }
+            }
+        }
+        // for (int i = 0; i < nx_in_rho; i++) {
+        //     for (int j = 0; j < ny_in_rho; j++){
+        //         for(int k = 0; k < nz_in_rho; k++){
+                     
+        //             VALUES_OUT_Vz(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k) - VALUES_OUT_P(i,j,k-1) );
+        //         }
+        //     }
+        // }
+        
+        // creating the output files for the pressure values using the sampling rate     
+        // change to  100 to sampling rate after
+        if (n%sampling_rate == 0){
             char* filename;
             int digits_count = count(output_file_nb);
             //printf("digits_count(%d) ", digits_count);
             char str_output_file_nb[20];
-
             sprintf(str_output_file_nb, "%06d", output_file_nb);
-            filename = concat("out_p.dat",str_output_file_nb);
+            char *filenames[4]= {output_pressure_base_filename,output_velocity_x_base_filename,output_velocity_y_base_filename,output_velocity_z_base_filename};
+            for(int l_filenames=0;l_filenames<4;l_filenames++){
+            filename = concat(filenames[l_filenames],str_output_file_nb);
+            printf("filename written into: %s\n",filename );
             //printf("%s \n",filename);
-			write_out_p_int(NX,filename);
-			write_out_p_int(NY,filename);
-			int NZ=0;
-			write_out_p_int(NZ,filename);
-			write_out_p_double(0,filename);
-			write_out_p_double(NX,filename);
-			write_out_p_double(0,filename);
-			write_out_p_double(NY,filename);
-			write_out_p_double(0,filename);
-			write_out_p_double(0,filename);
-            for(int j = 0 ; j<NY ;j++){
-				for(int i=0 ; i<NX ;i++){
-					write_out_p_double(P[i][j],filename);
-			}
+			write_int(nx_in_c,filename);
+			write_int(ny_in_c,filename);
+			write_int(nz_in_c,filename);
+			write_double(xmin_in_c,filename);
+			write_double(xmax_in_c,filename);
+			write_double(ymin_in_c,filename);
+			write_double(ymax_in_c,filename);
+			write_double(zmin_in_c,filename);
+			write_double(zmax_in_c,filename);
+            int increment=0;
+            for (int k = 1; k < nz_in_c; k++) {
+                for (int j = 1; j < ny_in_c; j++){
+                    for(int i = 1; i < nx_in_c; k++){
+                    switch(l_filenames){
+                            case 0:
+                                write_double(VALUES_OUT_P(i,j,k),filename);
+                                increment++;
+                                printf("increment : %d\n",increment);
+                                break;
+                            case 1:
+                                write_double(VALUES_OUT_Vx(i,j,k),filename);
+                                break;
+                            case 2:
+                                write_double(VALUES_OUT_Vy(i,j,k),filename);
+                                break;
+                            case 3:
+                                write_double(VALUES_OUT_Vz(i,j,k),filename);
+                                break;
+                    }}
+			    }
 			}
             free(filename); // deallocate the string                       
+            }
             output_file_nb = output_file_nb +1 ;
         }
 	}
