@@ -11,18 +11,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
- 
-// we use the parmeters from the input files 
-//  #define  NX 5				/* X [pixels] 100*/
-//  #define  NY 5				/*  Y [pixels] 100*/
-//  #define dx 0.01				/*  [m] */
-//  #define dt 20.0e-6			/*  [s] */
-//  #define Nstep 5000			/* Nstep*dt=durée de la simulation 0.01 s fait en 10000 pas*/
-//  #define rho 1.225 			/* [kg/m^3] */
-//  #define c 340 /*célerité en m *s**(-1)*/
-// double Vx[NX+1][NY];		/* [m/s] */
-// double Vy[NX][NY+1];		/*  [m/s] */
-// double P[NX][NY];			/* [Pa] */
+
+// 1 à quoi nous servenet le xmin et xmax dans les différents fichier binaire on résout le système
+//2 c'est quoi la différence entre le domaine et le grid de résolution 
+// 3 c'est quoi la taille des matrices p vx vy vz est ce que c'est nx ny nz
+
+
 //used to organize the values of the input 
 const int dim1, dim2, dim3;  /* Global variables, dimension*/
 
@@ -235,39 +229,30 @@ int main(int argc, char *argv[]){
         if(strcmp(source_type,"point_source_middle_3400")==0){
              freq = 3400;
         } 
-        //UpdateV();
-        for (int i = 1; i < nx_in_rho; i++) {
-            for (int j = 1; j < ny_in_rho; j++){
-                for(int k = 1; k < nz_in_rho; k++){
+        //UpdateP();
+        for (int i = xmin_in_c; i <= xmax_in_c; i++) {
+            for (int j = ymin_in_c; j <= ymax_in_c; j++){
+                for(int k = zmin_in_c; k <= zmax_in_c; k++){
                     VALUES_OUT_P(i,j,k) +=  -( VALUES_IN_RHO(i,j,k) * pow(VALUES_IN_C(i,j,k),2) * delta_t / delta)
                             * ( ( VALUES_OUT_Vx(i,j,k) - VALUES_OUT_Vx(i-1,j,k)  ) + ( VALUES_OUT_Vy(i,j,k) - VALUES_OUT_Vy(i,j-1,k) ) + (VALUES_OUT_Vz(i,j,k) - VALUES_OUT_Vz(i,j,k-1)));
                 }
             }
         }
+        // condition on the center
         VALUES_OUT_P(nx_in_rho/2,ny_in_rho/2,nz_in_rho/2)=sin(2*M_PI*n*delta*freq);
-		//UpdateP();
-        for (int i = 1; i < nx_in_rho; i++) {
-            for (int j = 1; j < ny_in_rho; j++){
-                for(int k = 1; k < nz_in_rho; k++){
-                    VALUES_OUT_Vx(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k) - VALUES_OUT_P(i-1,j,k) );
+        //condition on the boundaries not done yet TO DO
+
+		//UpdateV();
+        for (int i = xmin_in_rho; i <= xmax_in_rho; i++) {
+            for (int j = ymin_in_rho; j <= ymax_in_rho; j++){
+                for(int k = zmin_in_rho; k <= zmax_in_rho; k++){
+                    VALUES_OUT_Vx(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i+1,j,k) - VALUES_OUT_P(i,j,k) );
+                    VALUES_OUT_Vy(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j+1,k) - VALUES_OUT_P(i,j,k) );
+                    //VALUES_OUT_Vz(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k+1) - VALUES_OUT_P(i,j,k) );
                 }
             }
 	    }
-        for (int i = 1; i < nx_in_rho; i++) {
-            for (int j = 1; j < ny_in_rho; j++){
-                for(int k = 1; k < nz_in_rho; k++){
-                    VALUES_OUT_Vy(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k) - VALUES_OUT_P(i,j-1,k) );
-                }
-            }
-        }
-        // for (int i = 0; i < nx_in_rho; i++) {
-        //     for (int j = 0; j < ny_in_rho; j++){
-        //         for(int k = 0; k < nz_in_rho; k++){
-                     
-        //             VALUES_OUT_Vz(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k) - VALUES_OUT_P(i,j,k-1) );
-        //         }
-        //     }
-        // }
+      
         
         // creating the output files for the pressure values using the sampling rate     
         // change to  100 to sampling rate after
@@ -291,15 +276,12 @@ int main(int argc, char *argv[]){
 			write_double(ymax_in_c,filename);
 			write_double(zmin_in_c,filename);
 			write_double(zmax_in_c,filename);
-            int increment=0;
-            for (int k = 1; k < nz_in_c; k++) {
-                for (int j = 1; j < ny_in_c; j++){
-                    for(int i = 1; i < nx_in_c; k++){
+            for (int k = 0; k < nz_in_c; k++) {
+                for (int j = 0; j < ny_in_c; j++){
+                    for(int i = 0; i < nx_in_c; k++){
                     switch(l_filenames){
                             case 0:
                                 write_double(VALUES_OUT_P(i,j,k),filename);
-                                increment++;
-                                printf("increment : %d\n",increment);
                                 break;
                             case 1:
                                 write_double(VALUES_OUT_Vx(i,j,k),filename);
