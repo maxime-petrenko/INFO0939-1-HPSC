@@ -21,7 +21,9 @@
 const int dim1, dim2, dim3;  /* Global variables, dimension*/
 
 #define VALUES_IN_C(i,j,k) (array_in_c[dim2*dim3*i + dim3*j + k])
+#define VALUES_IN_C_INTERPOLED(i,j,k) (array_in_c_interpoled[dim2*dim3*i + dim3*j + k])
 #define VALUES_IN_RHO(i,j,k) (array_in_rho[dim2*dim3*i + dim3*j + k])
+#define VALUES_IN_RHO_INTERPOLED(i,j,k) (array_in_rho_interpoled[dim2*dim3*i + dim3*j + k])
 #define VALUES_OUT_P(i,j,k) (array_out_p[dim2*dim3*i + dim3*j + k])
 #define VALUES_OUT_Vx(i,j,k) (array_out_vx[dim2*dim3*i + dim3*j + k])
 #define VALUES_OUT_Vy(i,j,k) (array_out_vy[dim2*dim3*i + dim3*j + k])
@@ -78,7 +80,20 @@ int rem_if_exists(char *filename){
 	}
 }
 // end of file handling functions 
+float interpolate1D(float v1, float v2, float x){
+    return v1*(1-x) + v2*x;
+}
 
+float interpolate2D(float v1, float v2, float v3, float v4, float x, float y){
+    float s = interpolate1D(v1, v2, x);
+    float t = interpolate1D(v3, v4, x);
+    return interpolate1D(s, t, y);
+}
+float interpolate3D(float v1, float v2, float v3, float v4,float v5, float v6, float v7, float v8, float x, float y, float z){
+    float s = interpolate2D(v1, v2, v3, v4, x, y);
+    float t = interpolate2D(v5, v6, v7, v8, x, z);
+    return interpolate1D(s, t, z);
+}
 // functions for the name of file 
 char* concat(const char *s1, const char *s2){
     char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
@@ -142,23 +157,25 @@ int main(int argc, char *argv[]){
     int nx_in_c = my_record_in_c.nx;
     int ny_in_c = my_record_in_c.ny;
     int nz_in_c = my_record_in_c.nz;
+    
     double xmin_in_c = *((double*)my_record_in_c.xmin);
     double xmax_in_c = *((double*)my_record_in_c.xmax);
     double ymin_in_c = *((double*)my_record_in_c.ymin);
     double ymax_in_c = *((double*)my_record_in_c.ymax);
     double zmin_in_c = *((double*)my_record_in_c.zmin);
     double zmax_in_c = *((double*)my_record_in_c.zmax);
+    //printf("nz_in_c : |%d| zmin_in_c :|%lf| zmax_in_c :|%lf|\n",nz_in_c,zmin_in_c,zmax_in_c);
     double * array_in_c = (double *)malloc(nx_in_c*ny_in_c*nz_in_c*sizeof(double)); 
     if(array_in_c == NULL){
         printf("Memory not allocated");
     }else{    
-        for (int i = 0; i < nz_in_c; i++) {
+        for (int i = 0; i < nx_in_c; i++) {
             for (int j = 0; j < ny_in_c; j++){
-                for(int k = 0; k < nx_in_c; k++){
+                for(int k = 0; k < nz_in_c; k++){
                     char bytes[8];
                     fread(&bytes,sizeof(double),1,ptr_myfile) ;
-                    VALUES_IN_C(k,j,i) = *((double*)bytes);
-                    //printf("VALUES_IN_C(%d,%d,%d) : %lf",k,j,i,VALUES_IN_C(k,j,i));
+                    VALUES_IN_C(i,j,k) = *((double*)bytes);
+                    //printf("VALUES_IN_C(%d,%d,%d) : %lf",i,j,k,VALUES_IN_C(i,j,k));
                     //printf("\n");
                 }
             }
@@ -186,31 +203,53 @@ int main(int argc, char *argv[]){
     if(array_in_rho == NULL){
         printf("Memory not allocated");
     }else{    
-        for (int i = 0; i < nz_in_rho; i++) {
+        for (int i = 0; i < nx_in_rho; i++) {
             for (int j = 0; j < ny_in_rho; j++){
-                for(int k = 0; k < nx_in_rho; k++){
+                for(int k = 0; k < nz_in_rho; k++){
                     char bytes[8];
                     fread(&bytes,sizeof(double),1,ptr_myfile2) ;
-                    VALUES_IN_RHO(k,j,i) = *((double*)bytes);
-                    //printf("VALUES_IN_RHO(%d,%d,%d) : %lf",k,j,i,VALUES_IN_RHO(k,j,i));
+                    VALUES_IN_RHO(i,j,k) = *((double*)bytes);
+                    //printf("VALUES_IN_RHO(%d,%d,%d) : %lf",i,j,k,VALUES_IN_RHO(i,j,k));
                     //printf("\n");
                 }
             }
         }
     }
     fclose(ptr_myfile2);
+    /*first the value of c and rho should be interpoled so they can be used in the grid of the resolution*/
 
+    int tailleMatX =(xmax_in_c-xmin_in_c)/delta+1;
+    int tailleMatY =(ymax_in_c-ymin_in_c)/delta+1;
+    int tailleMatZ =(zmax_in_c-zmin_in_c)/delta+1;
+    printf("taille mat z : %d",tailleMatZ);
+    double * array_in_c_interpoled = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
+    double * array_in_rho_interpoled = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
+    for (int i = 0; i <tailleMatX ; i++) {
+        for (int j = 0; j <tailleMatY ; j++){
+            for(int k = 0; k <tailleMatZ ; k++){
+                VALUES_IN_C_INTERPOLED(i,j,k)  = interpolate2D(VALUES_IN_C(0,0,0),VALUES_IN_C(0,1,0),VALUES_IN_C(1,0,0),VALUES_IN_C(1,1,0),i,j) ;
+                //printf("VALUES_IN_C(%d,%d,%d) : %lf",i,j,k,VALUES_IN_C_INTERPOLED(i,j,k)); 
+                VALUES_IN_RHO_INTERPOLED(i,j,k)  = interpolate2D(VALUES_IN_RHO(0,0,0),VALUES_IN_RHO(0,1,0),VALUES_IN_RHO(1,0,0),VALUES_IN_RHO(1,1,0),i,j);
+                //later we ll use the interpolate 3d so we can do the 3d version
+            }
+        }
+    }
+    
+    
+    
     /* initialisation des différentes valeur de vélocité et pression pour les différents points à t0 */
-    double * array_out_p = (double *)malloc(nx_in_rho*ny_in_rho*nz_in_rho*sizeof(double));
-    double * array_out_vx = (double *)malloc(nx_in_rho*ny_in_rho*nz_in_rho*sizeof(double));
-    double * array_out_vy = (double *)malloc(nx_in_rho*ny_in_rho*nz_in_rho*sizeof(double));
-    double * array_out_vz = (double *)malloc(nx_in_rho*ny_in_rho*nz_in_rho*sizeof(double));
+    double * array_out_p = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
+    double * array_out_vx = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
+    double * array_out_vy = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
+    double * array_out_vz = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
+    //printf("tailleMatriceX est : %d\n",tailleMatX);
+    printf("declaration of the arrays done\n");
     if(array_out_p == NULL ||array_out_vx == NULL ||array_out_vy == NULL ||array_out_vz == NULL ){
-        printf("Memory not allocated");
+        printf("Memory not allocated\n");
     }else{    
-        for (int i = 0; i < nx_in_rho; i++) {
-            for (int j = 0; j < ny_in_rho; j++){
-                for(int k = 0; k < nz_in_rho; k++){
+        for (int i = 0; i <tailleMatX ; i++) {
+            for (int j = 0; j <tailleMatY ; j++){
+                for(int k = 0; k <tailleMatZ ; k++){
                     VALUES_OUT_P(i,j,k)  = 0.0 ;
                     VALUES_OUT_Vx(i,j,k) = 0.0 ;
                     VALUES_OUT_Vy(i,j,k) = 0.0 ;
@@ -220,8 +259,7 @@ int main(int argc, char *argv[]){
             }
         }
     }
-	
-	
+	printf("values of the different output files were initialized");
 	int n;
 	int output_file_nb=0;
 	for(n=0;n<=max_t/delta_t;n++){
@@ -230,22 +268,23 @@ int main(int argc, char *argv[]){
              freq = 3400;
         } 
         //UpdateP();
-        for (int i = xmin_in_c; i <= xmax_in_c; i++) {
-            for (int j = ymin_in_c; j <= ymax_in_c; j++){
-                for(int k = zmin_in_c; k <= zmax_in_c; k++){
+        for (int i = 1; i <tailleMatX ; i++) {
+            for (int j = 1; j <tailleMatY ; j++){
+                for(int k = 0; k <tailleMatZ ; k++){
                     VALUES_OUT_P(i,j,k) +=  -( VALUES_IN_RHO(i,j,k) * pow(VALUES_IN_C(i,j,k),2) * delta_t / delta)
                             * ( ( VALUES_OUT_Vx(i,j,k) - VALUES_OUT_Vx(i-1,j,k)  ) + ( VALUES_OUT_Vy(i,j,k) - VALUES_OUT_Vy(i,j-1,k) ) + (VALUES_OUT_Vz(i,j,k) - VALUES_OUT_Vz(i,j,k-1)));
                 }
             }
         }
         // condition on the center
-        VALUES_OUT_P(nx_in_rho/2,ny_in_rho/2,nz_in_rho/2)=sin(2*M_PI*n*delta*freq);
+        int xmid = tailleMatX/2,ymid = tailleMatY/2,zmid = tailleMatZ/2;  
+        VALUES_OUT_P(xmid,ymid,zmid)=sin(2*M_PI*n*delta*freq);
         //condition on the boundaries not done yet TO DO
 
 		//UpdateV();
-        for (int i = xmin_in_rho; i <= xmax_in_rho; i++) {
-            for (int j = ymin_in_rho; j <= ymax_in_rho; j++){
-                for(int k = zmin_in_rho; k <= zmax_in_rho; k++){
+        for (int i = 0; i <tailleMatX ; i++) {
+            for (int j = 0; j <tailleMatY ; j++){
+                for(int k = 0; k <tailleMatZ ; k++){
                     VALUES_OUT_Vx(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i+1,j,k) - VALUES_OUT_P(i,j,k) );
                     VALUES_OUT_Vy(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j+1,k) - VALUES_OUT_P(i,j,k) );
                     //VALUES_OUT_Vz(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k+1) - VALUES_OUT_P(i,j,k) );
@@ -259,7 +298,7 @@ int main(int argc, char *argv[]){
         if (n%sampling_rate == 0){
             char* filename;
             int digits_count = count(output_file_nb);
-            //printf("digits_count(%d) ", digits_count);
+            printf("digits_count(%d)\n ", digits_count);
             char str_output_file_nb[20];
             sprintf(str_output_file_nb, "%06d", output_file_nb);
             char *filenames[4]= {output_pressure_base_filename,output_velocity_x_base_filename,output_velocity_y_base_filename,output_velocity_z_base_filename};
@@ -276,9 +315,9 @@ int main(int argc, char *argv[]){
 			write_double(ymax_in_c,filename);
 			write_double(zmin_in_c,filename);
 			write_double(zmax_in_c,filename);
-            for (int k = 0; k < nz_in_c; k++) {
-                for (int j = 0; j < ny_in_c; j++){
-                    for(int i = 0; i < nx_in_c; k++){
+            for (int i = 0; i <tailleMatX ; i++) {
+                for (int j = 0; j <tailleMatY ; j++){
+                    for(int k = 0; k <tailleMatZ ; k++){
                     switch(l_filenames){
                             case 0:
                                 write_double(VALUES_OUT_P(i,j,k),filename);
@@ -294,10 +333,12 @@ int main(int argc, char *argv[]){
                                 break;
                     }}
 			    }
+
 			}
-            free(filename); // deallocate the string                       
+             // deallocate the string                       
             }
             output_file_nb = output_file_nb +1 ;
+            free(filename);
         }
 	}
 	return(0);
