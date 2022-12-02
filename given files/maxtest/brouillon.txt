@@ -1,0 +1,16 @@
+//while
+        // get size of line
+        // get line data
+
+    // !! if (need size to init char) {
+
+        char x[size_x] = lines[0];
+        char x[size_y] = lines[0];
+            
+
+    // } else {
+
+        char x = lines[0];
+        char y = lines[1];
+
+    //}
