@@ -29,7 +29,7 @@ int main(int argc, char *argv[]){
     int tailleMatX = 5;
     int tailleMatY = 5;
     int tailleMatZ = 5;
-
+    
     double * array_in_c_interpoled = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
     double * array_in_rho_interpoled = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
 

@@ -218,8 +218,8 @@ int main(int argc, char *argv[]){
     fclose(ptr_myfile2);
     /*first the value of c and rho should be interpoled so they can be used in the grid of the resolution*/
 
-    int tailleMatX =(xmax_in_c-xmin_in_c)/delta+1;
-    int tailleMatY =(ymax_in_c-ymin_in_c)/delta+1;
+    int tailleMatX =(xmax_in_c-xmin_in_c)/delta;
+    int tailleMatY =(ymax_in_c-ymin_in_c)/delta;
     int tailleMatZ =(zmax_in_c-zmin_in_c)/delta+1;
     printf("taille mat z : %d",tailleMatZ);
     double * array_in_c_interpoled = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
@@ -254,7 +254,6 @@ int main(int argc, char *argv[]){
                     VALUES_OUT_Vx(i,j,k) = 0.0 ;
                     VALUES_OUT_Vy(i,j,k) = 0.0 ;
                     VALUES_OUT_Vz(i,j,k) = 0.0 ;
-                   
                 }
             }
         }
@@ -268,11 +267,18 @@ int main(int argc, char *argv[]){
              freq = 3400;
         } 
         //UpdateP();
-        for (int i = 1; i <tailleMatX ; i++) {
-            for (int j = 1; j <tailleMatY ; j++){
+        double A,B,C;
+        for (int i = 0; i <tailleMatX ; i++) {
+            for (int j = 0; j <tailleMatY ; j++){
                 for(int k = 0; k <tailleMatZ ; k++){
+                    if(i=0){A= VALUES_OUT_Vx(i,j,k); 
+                    }else{A= VALUES_OUT_Vx(i-1,j,k);}
+                    if(j=0){B = VALUES_OUT_Vy(i,j,k); 
+                    }else{B = VALUES_OUT_Vy(i,j-1,k);}
+                    if(k=0){C= VALUES_OUT_Vx(i,j,k); 
+                    }else{C= VALUES_OUT_Vx(i,j,k-1);}
                     VALUES_OUT_P(i,j,k) +=  -( VALUES_IN_RHO(i,j,k) * pow(VALUES_IN_C(i,j,k),2) * delta_t / delta)
-                            * ( ( VALUES_OUT_Vx(i,j,k) - VALUES_OUT_Vx(i-1,j,k)  ) + ( VALUES_OUT_Vy(i,j,k) - VALUES_OUT_Vy(i,j-1,k) ) + (VALUES_OUT_Vz(i,j,k) - VALUES_OUT_Vz(i,j,k-1)));
+                        * ( ( VALUES_OUT_Vx(i,j,k) - A  ) + ( VALUES_OUT_Vy(i,j,k) - B ) + (VALUES_OUT_Vz(i,j,k) - C));  
                 }
             }
         }
@@ -282,11 +288,16 @@ int main(int argc, char *argv[]){
         //condition on the boundaries not done yet TO DO
 
 		//UpdateV();
+        double D,E;
         for (int i = 0; i <tailleMatX ; i++) {
             for (int j = 0; j <tailleMatY ; j++){
                 for(int k = 0; k <tailleMatZ ; k++){
-                    VALUES_OUT_Vx(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i+1,j,k) - VALUES_OUT_P(i,j,k) );
-                    VALUES_OUT_Vy(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j+1,k) - VALUES_OUT_P(i,j,k) );
+                    if(i=tailleMatX-1){D= 0; 
+                    }else{D= VALUES_OUT_P(i+1,j,k);}
+                    if(j=tailleMatY-1){E = 0;
+                    }else{E = VALUES_OUT_P(i,j+1,k);}
+                    VALUES_OUT_Vx(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( D - VALUES_OUT_P(i,j,k) );
+                    VALUES_OUT_Vy(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( E - VALUES_OUT_P(i,j,k) );
                     //VALUES_OUT_Vz(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k+1) - VALUES_OUT_P(i,j,k) );
                 }
             }
