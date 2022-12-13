@@ -79,7 +79,7 @@ int rem_if_exists(char *filename){
         return 1;
 	}
 }
-// end of file handling functions 
+// end of file handling functions
 float interpolate1D(float v1, float v2, float x){
     return v1*(1-x) + v2*x;
 }
@@ -121,6 +121,8 @@ int main(int argc, char *argv[]){
 	int idx = 0;
 	FILE *ifp;
 	char *filename;
+
+    
 	// Check if a filename has been specified in the command
 	if (argc < 2){
 			printf("Missing Filename\n");
@@ -135,6 +137,8 @@ int main(int argc, char *argv[]){
 		printf("Error opening file line 128!\n");
 		exit(1);
 	}
+
+
     double delta,delta_t,max_t;
     int sampling_rate;
     char source_type[50],input_speed_filename[50], input_density_filename[50], output_pressure_base_filename[50],output_velocity_x_base_filename[50],output_velocity_y_base_filename[50], output_velocity_z_base_filename[50];
@@ -222,9 +226,14 @@ int main(int argc, char *argv[]){
     int tailleMatY =(ymax_in_c-ymin_in_c)/delta;
     int tailleMatZ =(zmax_in_c-zmin_in_c)/delta+1;
     printf("taille mat z : %d",tailleMatZ);
+
+
     double * array_in_c_interpoled = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
     double * array_in_rho_interpoled = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
-    for (int i = 0; i <tailleMatX ; i++) {
+    
+
+    for (int i = 0; i <tailleMatX ; i++)
+    {
         for (int j = 0; j <tailleMatY ; j++){
             for(int k = 0; k <tailleMatZ ; k++){
                 VALUES_IN_C_INTERPOLED(i,j,k)  = interpolate2D(VALUES_IN_C(0,0,0),VALUES_IN_C(0,1,0),VALUES_IN_C(1,0,0),VALUES_IN_C(1,1,0),i,j) ;
@@ -243,7 +252,10 @@ int main(int argc, char *argv[]){
     double * array_out_vy = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
     double * array_out_vz = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
     //printf("tailleMatriceX est : %d\n",tailleMatX);
+
+
     printf("declaration of the arrays done\n");
+
     if(array_out_p == NULL ||array_out_vx == NULL ||array_out_vy == NULL ||array_out_vz == NULL ){
         printf("Memory not allocated\n");
     }else{    
@@ -257,34 +269,64 @@ int main(int argc, char *argv[]){
                 }
             }
         }
+
     }
-	printf("values of the different output files were initialized");
+
+
+	printf("values of the different output files were initialized \n");
+
 	int n;
 	int output_file_nb=0;
 	for(n=0;n<=max_t/delta_t;n++){
+
+
         double freq;
         if(strcmp(source_type,"point_source_middle_3400")==0){
              freq = 3400;
         } 
         //UpdateP();
         double A,B,C;
-        for (int i = 0; i <tailleMatX ; i++) {
-            for (int j = 0; j <tailleMatY ; j++){
+
+        printf("x:%d, y:%d, z:%d",tailleMatX, tailleMatY,  tailleMatZ);
+        int xmid = tailleMatX/2,ymid = tailleMatY/2,zmid = tailleMatZ/2;  
+
+                
+        VALUES_OUT_P(xmid,ymid,zmid)=sin(2*M_PI*n*delta*freq); /// PROBLEM : que des zeros !!!!!!!!!!!!!!!!!!
+
+        printf("VALUES_out_p(%d,%d,%d) : %lf",xmid,ymid,zmid,VALUES_OUT_P(xmid,ymid,zmid));
+        printf("\n");
+
+        for (int i = 0; i < tailleMatX ; i++) {
+
+            for (int j = 0; j <= tailleMatY ; j++){
+
+
                 for(int k = 0; k <tailleMatZ ; k++){
-                    if(i=0){A= VALUES_OUT_Vx(i,j,k); 
-                    }else{A= VALUES_OUT_Vx(i-1,j,k);}
-                    if(j=0){B = VALUES_OUT_Vy(i,j,k); 
-                    }else{B = VALUES_OUT_Vy(i,j-1,k);}
-                    if(k=0){C= VALUES_OUT_Vx(i,j,k); 
-                    }else{C= VALUES_OUT_Vx(i,j,k-1);}
+
+                    
+
+
+                    // if(i==0){A= VALUES_OUT_Vx(i,j,k); 
+                    // }else{A= VALUES_OUT_Vx(i-1,j,k);}
+                    // if(j==0){B = VALUES_OUT_Vy(i,j,k); 
+                    // }else{B = VALUES_OUT_Vy(i,j-1,k);}
+                    // if(k==0){C= VALUES_OUT_Vx(i,j,k); 
+                    // }else{C= VALUES_OUT_Vx(i,j,k-1);}
+
+
+                    //PROBLEM : il ne pas faut pas update la source das la boucle !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     VALUES_OUT_P(i,j,k) +=  -( VALUES_IN_RHO(i,j,k) * pow(VALUES_IN_C(i,j,k),2) * delta_t / delta)
                         * ( ( VALUES_OUT_Vx(i,j,k) - A  ) + ( VALUES_OUT_Vy(i,j,k) - B ) + (VALUES_OUT_Vz(i,j,k) - C));  
+
+                    
                 }
             }
         }
+
+        
+       
         // condition on the center
-        int xmid = tailleMatX/2,ymid = tailleMatY/2,zmid = tailleMatZ/2;  
-        VALUES_OUT_P(xmid,ymid,zmid)=sin(2*M_PI*n*delta*freq);
+        
         //condition on the boundaries not done yet TO DO
 
 		//UpdateV();
@@ -292,10 +334,10 @@ int main(int argc, char *argv[]){
         for (int i = 0; i <tailleMatX ; i++) {
             for (int j = 0; j <tailleMatY ; j++){
                 for(int k = 0; k <tailleMatZ ; k++){
-                    if(i=tailleMatX-1){D= 0; 
-                    }else{D= VALUES_OUT_P(i+1,j,k);}
-                    if(j=tailleMatY-1){E = 0;
-                    }else{E = VALUES_OUT_P(i,j+1,k);}
+                    // if(i=tailleMatX-1){D= 0; 
+                    // }else{D= VALUES_OUT_P(i+1,j,k);}
+                    // if(j=tailleMatY-1){E = 0;
+                    // }else{E = VALUES_OUT_P(i,j+1,k);}
                     VALUES_OUT_Vx(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( D - VALUES_OUT_P(i,j,k) );
                     VALUES_OUT_Vy(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( E - VALUES_OUT_P(i,j,k) );
                     //VALUES_OUT_Vz(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k+1) - VALUES_OUT_P(i,j,k) );
@@ -316,22 +358,31 @@ int main(int argc, char *argv[]){
             for(int l_filenames=0;l_filenames<4;l_filenames++){
             filename = concat(filenames[l_filenames],str_output_file_nb);
             printf("filename written into: %s\n",filename );
-            //printf("%s \n",filename);
-			write_int(nx_in_c,filename);
-			write_int(ny_in_c,filename);
-			write_int(nz_in_c,filename);
-			write_double(xmin_in_c,filename);
-			write_double(xmax_in_c,filename);
-			write_double(ymin_in_c,filename);
-			write_double(ymax_in_c,filename);
-			write_double(zmin_in_c,filename);
-			write_double(zmax_in_c,filename);
+            // printf("%s \n",filename)
+
+
+    
+
+
+            double zero= 0;
+            double max5=99;
+			write_int(tailleMatX,filename);
+			write_int(tailleMatY,filename);
+			write_int(tailleMatZ,filename);
+			write_double(zero,filename);
+			write_double(max5,filename);
+			write_double(zero,filename);
+			write_double(max5,filename);
+			write_double(zero,filename);
+			write_double(max5,filename);
             for (int i = 0; i <tailleMatX ; i++) {
                 for (int j = 0; j <tailleMatY ; j++){
                     for(int k = 0; k <tailleMatZ ; k++){
                     switch(l_filenames){
                             case 0:
                                 write_double(VALUES_OUT_P(i,j,k),filename);
+                                // printf("VALUES_out_p(%d,%d,%d) : %lf",i,j,k,VALUES_OUT_P(i,j,k));
+                                // printf("\n");
                                 break;
                             case 1:
                                 write_double(VALUES_OUT_Vx(i,j,k),filename);
