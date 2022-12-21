@@ -11,24 +11,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include<windows.h> // for sleep function 
+//#include<windows.h>
+
 // 1 à quoi nous servenet le xmin et xmax dans les différents fichier binaire on résout le système
 //2 c'est quoi la différence entre le domaine et le grid de résolution 
 // 3 c'est quoi la taille des matrices p vx vy vz est ce que c'est nx ny nz
 
 
 //used to organize the values of the input 
-const int dim1, dim2, dim3;  /* Global variables, dimension*/
-
-#define VALUES_IN_C(i,j,k) (array_in_c[dim2*dim3*i + dim3*j + k])
-#define VALUES_IN_C_INTERPOLED(i,j,k) (array_in_c_interpoled[dim2*dim3*i + dim3*j + k])
-#define VALUES_IN_RHO(i,j,k) (array_in_rho[dim2*dim3*i + dim3*j + k])
-#define VALUES_IN_RHO_INTERPOLED(i,j,k) (array_in_rho_interpoled[dim2*dim3*i + dim3*j + k])
-#define VALUES_OUT_P(i,j,k) (array_out_p[dim2*dim3*i + dim3*j + k])
-#define VALUES_OUT_Vx(i,j,k) (array_out_vx[dim2*dim3*i + dim3*j + k])
-#define VALUES_OUT_Vy(i,j,k) (array_out_vy[dim2*dim3*i + dim3*j + k])
-#define VALUES_OUT_Vz(i,j,k) (array_out_vz[dim2*dim3*i + dim3*j + k])
-
 /* Our structure for the first terms of the file */
 struct rec{
     int nx;
@@ -169,7 +159,13 @@ int main(int argc, char *argv[]){
     double zmin_in_c = *((double*)my_record_in_c.zmin);
     double zmax_in_c = *((double*)my_record_in_c.zmax);
     //printf("nz_in_c : |%d| zmin_in_c :|%lf| zmax_in_c :|%lf|\n",nz_in_c,zmin_in_c,zmax_in_c);
-    double * array_in_c = (double *)malloc(nx_in_c*ny_in_c*nz_in_c*sizeof(double)); 
+    double *** array_in_c = (double ***)malloc(nx_in_c*sizeof(double**));
+    for (int i = 0; i< nx_in_c; i++) {
+    array_in_c[i] = (double **) malloc(ny_in_c*sizeof(double *));
+        for (int j = 0; j < ny_in_c; j++) {
+            array_in_c[i][j] = (double *)malloc(nz_in_c*sizeof(double));
+        }
+    } 
     if(array_in_c == NULL){
         printf("Memory not allocated");
     }else{    
@@ -178,8 +174,8 @@ int main(int argc, char *argv[]){
                 for(int k = 0; k < nz_in_c; k++){
                     char bytes[8];
                     fread(&bytes,sizeof(double),1,ptr_myfile) ;
-                    VALUES_IN_C(i,j,k) = *((double*)bytes);
-                    //printf("VALUES_IN_C(%d,%d,%d) : %lf",i,j,k,VALUES_IN_C(i,j,k));
+                    array_in_c[i][j][k] = *((double*)bytes);
+                    //printf("VALUES_IN_C(%d,%d,%d) : %lf",i,j,k,array_in_c_interpoled[i][j][k]);
                     //printf("\n");
                 }
             }
@@ -203,7 +199,13 @@ int main(int argc, char *argv[]){
     double ymax_in_rho = *((double*)my_record_in_rho.ymax);
     double zmin_in_rho = *((double*)my_record_in_rho.zmin);
     double zmax_in_rho = *((double*)my_record_in_rho.zmax);
-    double * array_in_rho = (double *)malloc(nx_in_rho*ny_in_rho*nz_in_rho*sizeof(double)); 
+    double *** array_in_rho = (double ***)malloc(nx_in_rho*sizeof(double**));
+    for (int i = 0; i< nx_in_rho; i++) {
+    array_in_rho[i] = (double **) malloc(ny_in_rho*sizeof(double *));
+        for (int j = 0; j < ny_in_rho; j++) {
+            array_in_rho[i][j] = (double *)malloc(nz_in_rho*sizeof(double));
+        }
+    }  
     if(array_in_rho == NULL){
         printf("Memory not allocated");
     }else{    
@@ -212,8 +214,8 @@ int main(int argc, char *argv[]){
                 for(int k = 0; k < nz_in_rho; k++){
                     char bytes[8];
                     fread(&bytes,sizeof(double),1,ptr_myfile2) ;
-                    VALUES_IN_RHO(i,j,k) = *((double*)bytes);
-                    //printf("VALUES_IN_RHO(%d,%d,%d) : %lf",i,j,k,VALUES_IN_RHO(i,j,k));
+                    array_in_rho[i][j][k] = *((double*)bytes);
+                    //printf("VALUES_IN_RHO(%d,%d,%d) : %lf",i,j,k,array_in_rho_interpoled[i][j][k]);
                     //printf("\n");
                 }
             }
@@ -227,32 +229,65 @@ int main(int argc, char *argv[]){
     int tailleMatZ =(zmax_in_c-zmin_in_c)/delta+1;
     printf("taille mat z : %d",tailleMatZ);
 
-
-    double * array_in_c_interpoled = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
-    double * array_in_rho_interpoled = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
-    
+    int dim1, dim2, dim3;
+    dim1=tailleMatX;
+    dim2=tailleMatY;
+    dim3=tailleMatZ;
+    double *** array_in_c_interpoled = (double ***)malloc(dim1*sizeof(double**));
+    for (int i = 0; i< dim1; i++) {
+    array_in_c_interpoled[i] = (double **) malloc(dim2*sizeof(double *));
+        for (int j = 0; j < dim2; j++) {
+            array_in_c_interpoled[i][j] = (double *)malloc(dim3*sizeof(double));
+        }
+    }
+    double *** array_in_rho_interpoled = (double ***)malloc(dim1*sizeof(double**));
+    for (int i = 0; i< dim1; i++) {
+    array_in_rho_interpoled[i] = (double **) malloc(dim2*sizeof(double *));
+        for (int j = 0; j < dim2; j++) {
+            array_in_rho_interpoled[i][j] = (double *)malloc(dim3*sizeof(double));
+        }
+    }
 
     for (int i = 0; i <tailleMatX ; i++)
     {
         for (int j = 0; j <tailleMatY ; j++){
             for(int k = 0; k <tailleMatZ ; k++){
-                VALUES_IN_C_INTERPOLED(i,j,k)  = interpolate2D(VALUES_IN_C(0,0,0),VALUES_IN_C(0,1,0),VALUES_IN_C(1,0,0),VALUES_IN_C(1,1,0),i,j) ;
+                array_in_c_interpoled[i][j][k]  = interpolate2D(array_in_c[0][0][0],array_in_c[0][1][0],array_in_c[1][0][0],array_in_c[1][1][0],i,j) ;
                 //printf("VALUES_IN_C(%d,%d,%d) : %lf",i,j,k,VALUES_IN_C_INTERPOLED(i,j,k)); 
-                VALUES_IN_RHO_INTERPOLED(i,j,k)  = interpolate2D(VALUES_IN_RHO(0,0,0),VALUES_IN_RHO(0,1,0),VALUES_IN_RHO(1,0,0),VALUES_IN_RHO(1,1,0),i,j);
+                array_in_rho_interpoled[i][j][k]  = interpolate2D(array_in_rho[0][0][0],array_in_rho[0][1][0],array_in_rho[1][0][0],array_in_rho[1][1][0],i,j);
                 //later we ll use the interpolate 3d so we can do the 3d version
             }
         }
     }
-    
-    
-    
     /* initialisation des différentes valeur de vélocité et pression pour les différents points à t0 */
-    double * array_out_p = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
-    double * array_out_vx = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
-    double * array_out_vy = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
-    double * array_out_vz = (double *)malloc(tailleMatX*tailleMatY*tailleMatZ*sizeof(double));
-    //printf("tailleMatriceX est : %d\n",tailleMatX);
-
+    double *** array_out_p = (double ***)malloc(dim1*sizeof(double**));
+    for (int i = 0; i< dim1; i++) {
+    array_out_p[i] = (double **) malloc(dim2*sizeof(double *));
+        for (int j = 0; j < dim2; j++) {
+            array_out_p[i][j] = (double *)malloc(dim3*sizeof(double));
+        }
+    }
+    double *** array_out_vx = (double ***)malloc(dim1*sizeof(double**));
+    for (int i = 0; i< dim1; i++) {
+    array_out_vx[i] = (double **) malloc(dim2*sizeof(double *));
+        for (int j = 0; j < dim2; j++) {
+            array_out_vx[i][j] = (double *)malloc(dim3*sizeof(double));
+        }
+    }
+    double *** array_out_vy = (double ***)malloc(dim1*sizeof(double**));
+    for (int i = 0; i< dim1; i++) {
+    array_out_vy[i] = (double **) malloc(dim2*sizeof(double *));
+        for (int j = 0; j < dim2; j++) {
+            array_out_vy[i][j] = (double *)malloc(dim3*sizeof(double));
+        }
+    }
+    double *** array_out_vz = (double ***)malloc(dim1*sizeof(double**));
+    for (int i = 0; i< dim1; i++) {
+    array_out_vz[i] = (double **) malloc(dim2*sizeof(double *));
+        for (int j = 0; j < dim2; j++) {
+            array_out_vz[i][j] = (double *)malloc(dim3*sizeof(double));
+        }
+    }
 
     printf("declaration of the arrays done\n");
 
@@ -262,10 +297,10 @@ int main(int argc, char *argv[]){
         for (int i = 0; i <tailleMatX ; i++) {
             for (int j = 0; j <tailleMatY ; j++){
                 for(int k = 0; k <tailleMatZ ; k++){
-                    VALUES_OUT_P(i,j,k)  = 0.0 ;
-                    VALUES_OUT_Vx(i,j,k) = 0.0 ;
-                    VALUES_OUT_Vy(i,j,k) = 0.0 ;
-                    VALUES_OUT_Vz(i,j,k) = 0.0 ;
+                    array_out_p[i][j][k]  = 0.0 ;
+                    array_out_vx[i][j][k] = 0.0 ;
+                    array_out_vy[i][j][k] = 0.0 ;
+                    array_out_vz[i][j][k] = 0.0 ;
                 }
             }
         }
@@ -287,110 +322,117 @@ int main(int argc, char *argv[]){
         //UpdateP();
         double A,B,C;
 
-        // printf("x:%d, y:%d, z:%d",tailleMatX, tailleMatY,  tailleMatZ);
+        //printf("x:%d, y:%d, z:%d",tailleMatX, tailleMatY,  tailleMatZ);
         int xmid = tailleMatX/2,ymid = tailleMatY/2,zmid = tailleMatZ/2;  
 
                 
-        VALUES_OUT_P(xmid,ymid,zmid)=sin(2*3.1415*n*delta*freq);
+         /// PROBLEM : que des zeros !!!!!!!!!!!!!!!!!!
 
         // printf("VALUES_out_p(%d,%d,%d) : %lf",xmid,ymid,zmid,VALUES_OUT_P(xmid,ymid,zmid));
         // printf("\n");
-        for (int i = 0; i < tailleMatX ; i++) {
-            for (int j = 0; j < tailleMatY ; j++){
+        array_out_p[xmid][ymid][zmid]=sin(2*3.1415*n*delta*freq);
+        for (int i = 1; i < tailleMatX ; i++) {
+            for (int j = 1; j < tailleMatY ; j++){
                 for(int k = 0; k <tailleMatZ ; k++){
-                    
-                     
-                    if(i==0){A= VALUES_OUT_Vx(i,j,k); 
-                    }else{A= VALUES_OUT_Vx(i-1,j,k);}
-                    if(j==0){B = VALUES_OUT_Vy(i,j,k); 
-                    }else{B = VALUES_OUT_Vy(i,j-1,k);}
-                    if(k==0){C= VALUES_OUT_Vx(i,j,k); 
-                    }else{C= VALUES_OUT_Vx(i,j,k-1);}
-                    VALUES_OUT_P(i,j,k) -=  (VALUES_IN_RHO(i,j,k) * pow(VALUES_IN_C(i,j,k),2) * delta_t )
-                        * ( ( VALUES_OUT_Vx(i,j,k) - A  ) + ( VALUES_OUT_Vy(i,j,k) - B ) + (VALUES_OUT_Vz(i,j,k) - C))/(delta);  
-                      
+                    if(i==xmid && j==ymid && k==zmid){
+                        array_out_p[xmid][ymid][zmid]=sin(2*3.1415*n*delta*freq);
+                    }else{
+                    if(i==0){A= array_out_vx[i][j][k]; 
+                    }else{A= array_out_vx[i-1][j][k];}
+                    if(j==0){B = array_out_vy[i][j][k]; 
+                    }else{B = array_out_vy[i][j-1][k];}
+                    if(k==0){C= array_out_vz[i][j][k]; 
+                    }else{C= array_out_vz[i][j][k-1];}
+                    array_out_p[i][j][k] -=  (array_in_rho_interpoled[i][j][k] * pow(array_in_c_interpoled[i][j][k],2) * delta_t )
+                        * ( ( array_out_vx[i][j][k] - A  ) + ( array_out_vy[i][j][k] - B ))/(delta);  
+                    //array_out_p[i][j][k] = i+j+k; 
+                    }
                 }
             }
         }
-        VALUES_OUT_P(xmid,ymid,zmid)=sin(2*3.1415*n*delta*freq);
-        // printf("VALUES_out_p(%d,%d,%d) : %lf",xmid,ymid,zmid,VALUES_OUT_P(xmid,ymid,zmid));
-        // printf("\n");
-        // printf("VALUES_out_p(30,40,0) : %lf",VALUES_OUT_P(30,40,0));
-        // printf("\n");
-        
-       
-       
-        // condition on the center
-        
-        //condition on the boundaries not done yet TO DO
 
+        
 		//UpdateV();
         double D,E;
-        for (int i = 0; i <tailleMatX ; i++) {
+        for (int i = 0; i <tailleMatX-1 ; i++) {
             for (int j = 0; j <tailleMatY ; j++){
                 for(int k = 0; k <tailleMatZ ; k++){
-                    if(i=tailleMatX-1){D= 0; 
-                    }else{D= VALUES_OUT_P(i+1,j,k);}
-                    if(j=tailleMatY-1){E = 0;
-                    }else{E = VALUES_OUT_P(i,j+1,k);}
-                    VALUES_OUT_Vx(i,j,k) += - (delta_t) * (D - VALUES_OUT_P(i,j,k)) / (VALUES_IN_RHO(i,j,k) * delta);
-                    VALUES_OUT_Vy(i,j,k) += - (delta_t / (VALUES_IN_RHO(i,j,k) * delta)) * ( E - VALUES_OUT_P(i,j,k) );
-                    //VALUES_OUT_Vz(i,j,k) += - delta_t / (VALUES_IN_RHO(i,j,k) * delta) * ( VALUES_OUT_P(i,j,k+1) - VALUES_OUT_P(i,j,k) );
+                    array_out_vx[i][j][k] -=  (delta_t  * ( array_out_p[i+1][j][k] - array_out_p[i][j][k] )) / (array_in_rho_interpoled[i][j][k] * delta);
+                    //array_out_vz[i][j][k] += - delta_t / (array_in_rho_interpoled[i][j][k] * delta) * ( array_out_p[i][j][k+1] - array_out_p[i][j][k] );
                 }
             }
 	    }
-      
+        for (int i = 0; i <tailleMatX ; i++) {
+            for (int j = 0; j <tailleMatY-1 ; j++){
+                for(int k = 0; k <tailleMatZ ; k++){
+                    array_out_vy[i][j][k] -=  (delta_t  * ( array_out_p[i][j+1][k] - array_out_p[i][j][k] )) / (array_in_rho_interpoled[i][j][k] * delta);
+                    //array_out_vz[i][j][k] += - delta_t / (array_in_rho_interpoled[i][j][k] * delta) * ( array_out_p[i][j][k+1] - array_out_p[i][j][k] );
+                }
+            }
+	    }
+
         
+        // printf("---------------------------------------MatriceP-apres la boucle : %d----------------------------------------\n",n);
+        // sleep(1);
+        // for (int i = 45; i < 56 ; i++) {
+        //     for (int j = 45; j <= 56 ; j++){
+        //         for(int k = 0; k <tailleMatZ ; k++){
+        //             printf("%lf ",array_out_p[i][j][k]);   
+        //         }
+        //     }
+        //     printf("\n");
+        // }
         // creating the output files for the pressure values using the sampling rate     
         // change to  100 to sampling rate after
-        // if (n%sampling_rate == 0){
-        //     char* filename;
-        //     int digits_count = count(output_file_nb);
-        //     printf("digits_count(%d)\n ", digits_count);
-        //     char str_output_file_nb[20];
-        //     sprintf(str_output_file_nb, "%06d", output_file_nb);
-        //     char *filenames[4]= {output_pressure_base_filename,output_velocity_x_base_filename,output_velocity_y_base_filename,output_velocity_z_base_filename};
-        //     for(int l_filenames=0;l_filenames<4;l_filenames++){
-        //     // printf("%s \n",filename)
+        if (n%sampling_rate == 0){
+            char* filename;
+            int digits_count = count(output_file_nb);
+            printf("digits_count(%d)\n ", digits_count);
+            char str_output_file_nb[20];
+            sprintf(str_output_file_nb, "%06d", output_file_nb);
+            char *filenames[4]= {output_pressure_base_filename,output_velocity_x_base_filename,output_velocity_y_base_filename,output_velocity_z_base_filename};
+            for(int l_filenames=0;l_filenames<4;l_filenames++){
+            filename = concat(filenames[l_filenames],str_output_file_nb);
+            printf("filename written into: %s\n",filename );
+            // printf("%s \n",filename)
+            double zero= 0;
+            double max5=99;
+			write_int(tailleMatX,filename);
+			write_int(tailleMatY,filename);
+			write_int(tailleMatZ,filename);
+			write_double(zero,filename);
+			write_double(max5,filename);
+			write_double(zero,filename);
+			write_double(max5,filename);
+			write_double(zero,filename);
+			write_double(max5,filename);
+            for (int k = 0; k <tailleMatZ ; k++) {
+                for (int j = 0; j <tailleMatY ; j++){
+                    for(int i = 0; i <tailleMatX ; i++){
+                    switch(l_filenames){
+                            case 0:
+                                write_double(array_out_p[i][j][k],filename);
+                                // printf("VALUES_out_p(%d,%d,%d) : %lf",i,j,k,array_out_p[i][j][k]);
+                                // printf("\n");
+                                break;
+                            case 1:
+                                write_double(array_out_vx[i][j][k],filename);
+                                break;
+                            case 2:
+                                write_double(array_out_vy[i][j][k],filename);
+                                break;
+                            case 3:
+                                write_double(array_out_vz[i][j][k],filename);
+                                break;
+                    }}
+			    }
 
-        //     double zero= 0;
-        //     double max5=99;
-		// 	write_int(tailleMatX,filename);
-		// 	write_int(tailleMatY,filename);
-		// 	write_int(tailleMatZ,filename);
-		// 	write_double(zero,filename);
-		// 	write_double(max5,filename);
-		// 	write_double(zero,filename);
-		// 	write_double(max5,filename);
-		// 	write_double(zero,filename);
-		// 	write_double(max5,filename);
-        //     for (int k = 0; k <tailleMatZ ; k++) {
-        //         for (int j = 0; j <tailleMatY ; j++){
-        //             for(int i = 0; i <tailleMatX ; i++){
-        //             switch(l_filenames){
-        //                     case 0:
-        //                         write_double(VALUES_OUT_P(i,j,k),filename);
-        //                         // printf("VALUES_out_p(%d,%d,%d) : %lf",i,j,k,VALUES_OUT_P(i,j,k));
-        //                         // printf("\n");
-        //                         break;
-        //                     case 1:
-        //                         write_double(VALUES_OUT_Vx(i,j,k),filename);
-        //                         break;
-        //                     case 2:
-        //                         write_double(VALUES_OUT_Vy(i,j,k),filename);
-        //                         break;
-        //                     case 3:
-        //                         write_double(VALUES_OUT_Vz(i,j,k),filename);
-        //                         break;
-        //             }}
-		// 	    }
-
-		// 	}
-        //      // deallocate the string                       
-        //     }
-        //     output_file_nb = output_file_nb +1 ;
-        //     free(filename);
-        // }
+			}
+             // deallocate the string                       
+            }
+            output_file_nb = output_file_nb +1 ;
+            free(filename);
+        }
 	}
 	return(0);
 }
