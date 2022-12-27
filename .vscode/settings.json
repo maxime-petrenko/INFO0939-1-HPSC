@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "windows.h": "c"
+        "windows.h": "c",
+        "omp.h": "c",
+        "time.h": "c"
     }
 }

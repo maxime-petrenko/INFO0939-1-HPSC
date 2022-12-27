@@ -11,8 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <omp.h>
 #include <time.h>
-// time of exection 1400s
+// time of exection 1019s
 
 /* Our structure to extract the first terms of the files : in_c,in_rho */
 struct rec{
@@ -322,7 +323,7 @@ int main(int argc, char *argv[]){
         // printf("VALUES_out_p(%d,%d,%d) : %lf",xmid,ymid,zmid,VALUES_OUT_P(xmid,ymid,zmid));
         // printf("\n");
         array_out_p[xmid][ymid][zmid]=sin(2*3.1415*n*delta*freq);
-        
+        #pragma omp parallel for collapse(2)
         double A,B,C;
         for (int i = 1; i < tailleMatX ; i++) {
             for (int j = 1; j < tailleMatY ; j++){
@@ -343,7 +344,7 @@ int main(int argc, char *argv[]){
                 }
             }
         }
-        
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i <tailleMatX-1 ; i++) {
             for (int j = 0; j <tailleMatY ; j++){
                 for(int k = 0; k <tailleMatZ ; k++){
@@ -352,7 +353,7 @@ int main(int argc, char *argv[]){
                 }
             }
 	    }
-        
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i <tailleMatX ; i++) {
             for (int j = 0; j <tailleMatY-1 ; j++){
                 for(int k = 0; k <tailleMatZ ; k++){
